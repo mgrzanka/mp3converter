@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq-statefulset
+spec:
+  serviceName: rabbitmq-headless-service
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      serviceAccountName: rabbitmq
+      initContainers:
+        - name: config
+          image: busybox
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "cp /tmp/config/rabbitmq.conf /config/rabbitmq.conf && ls -l /config/ && cp /tmp/config/enabled_plugins /etc/rabbitmq/enabled_plugins",
+            ]
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/config/
+              readOnly: false
+            - name: config-file
+              mountPath: /config/
+            - name: plugins-file
+              mountPath: /etc/rabbitmq/
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.8-management
+          ports:
+            - containerPort: 15672
+              name: management
+            - containerPort: 5672
+              name: amqp
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: RABBITMQ_PASSWORD
+            - name: RABBIT_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: RABBIT_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RABBITMQ_NODENAME
+              value: rabbit@$(RABBIT_POD_NAME).rabbitmq-headless-service.$(RABBIT_POD_NAMESPACE).svc.cluster.local
+            - name: RABBITMQ_USE_LONGNAME
+              value: "true"
+            - name: RABBITMQ_CONFIG_FILE
+              value: "/config/rabbitmq"
+            - name: RABBITMQ_ERLANG_COOKIE
+              valueFrom:
+                secretKeyRef:
+                  name: rabbit-secret
+                  key: RABBITMQ_ERLANG_COOKIE
+            - name: K8S_HOSTNAME_SUFFIX
+              value: .rabbitmq-headless-service.$(RABBIT_POD_NAMESPACE).svc.cluster.local
+            - name: K8S_SERVICE_NAME
+              value: rabbitmq-headless-service
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+              readOnly: false
+            - name: config-file
+              mountPath: /config/
+            - name: plugins-file
+              mountPath: /etc/rabbitmq/
+      volumes:
+        - name: config-file
+          emptyDir: {}
+        - name: plugins-file
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: rabbitmq-config
+            defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless-service
+spec:
+  clusterIP: None
+  ports:
+    - port: 15672
+      targetPort: 15672
+      name: management
+    - port: 5672
+      targetPort: 5672
+      name: amqp
+  selector:
+    app: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-service
+spec:
+  type: NodePort
+  ports:
+    - port: 5672
+      targetPort: 5672
+      name: amqp
+    - port: 15672
+      targetPort: 15672
+      nodePort: 30002
+      name: management
+  selector:
+    app: rabbitmq

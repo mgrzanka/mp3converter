@@ -1,0 +1,11 @@
+services:
+  converter_service:
+    build: .
+    container_name: converter_service
+    depends_on:
+      - rabbitmq
+      - mongo
+    env_file:
+      - .env
+    networks:
+      - converter_network

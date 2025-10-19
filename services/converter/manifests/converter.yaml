@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: converter-deployment
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: converter
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 8
+      maxUnavailable: 2
+  template:
+    metadata:
+      labels:
+        app: converter
+    spec:
+      containers:
+        - name: converter
+          image: magic624/converter:latest
+          envFrom:
+            - configMapRef:
+                name: converter-config
+            - secretRef:
+                name: converter-secret

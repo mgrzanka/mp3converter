@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  PORT: "8080"
+  AUTH_SERVICE_HOST: http://auth-service:5000

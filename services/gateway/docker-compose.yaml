@@ -1,0 +1,43 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - "mongo_data:/data/db"
+    ports:
+      - "27017:27017"
+    networks:
+      - converter_network
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - converter_network
+  gateway_service:
+    build: .
+    container_name: gateway_service
+    depends_on:
+      - rabbitmq
+      - mongo
+      - auth_service
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    networks:
+      - converter_network
+
+volumes:
+  mongo_data:
+  rabbitmq_data:

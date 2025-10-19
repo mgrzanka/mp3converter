@@ -1,0 +1,11 @@
+name: video-to-mp3-converter
+
+include:
+  - ./auth/docker-compose.yaml
+  - ./gateway/docker-compose.yaml
+  - ./converter/docker-compose.yaml
+  - ./notifications/docker-compose.yaml
+
+networks:
+  converter_network:
+    driver: bridge

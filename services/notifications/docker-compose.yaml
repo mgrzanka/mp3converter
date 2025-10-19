@@ -1,0 +1,11 @@
+services:
+  notification_service:
+    build: .
+    container_name: notification_service
+    depends_on:
+      - rabbitmq
+      - gateway_service
+    env_file:
+      - ./.env
+    networks:
+      - converter_network

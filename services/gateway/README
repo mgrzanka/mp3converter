@@ -1,0 +1,4 @@
+sudo vim /etc/hosts -- dodanie mapowania mp3converter.com na localhost
+
+łączenie z apką : minikube tunnel + mp3converter.com
+łączenie z rabbitmq management : minikubetunell + rabbitmq-manager.com

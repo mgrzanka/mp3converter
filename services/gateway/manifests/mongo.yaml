@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo-statefulset
+spec:
+  serviceName: "mongo-headless-service"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7.0
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: MONGO_USER
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: MONGO_PASSWORD
+          volumeMounts:
+            - name: mongo-volume
+              mountPath: /data/db
+          command:
+            - mongod
+            - "--bind_ip_all"
+            - "--replSet"
+            - rs0
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-volume
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-headless-service
+spec:
+  clusterIP: None
+  selector:
+    app: mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-init-statefulset-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: init-mongo
+          image: mongo:7.0
+          command: ["bash", "-c"]
+          env:
+            - name: MONGO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: MONGO_USER
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-secret
+                  key: MONGO_PASSWORD
+          args:
+            - |
+              echo "Waiting for all mongo containers..."
+              for host in mongo-statefulset-0 mongo-statefulset-1 mongo-statefulset-2; do
+                until mongosh --host ${host}.mongo-headless-service:27017 --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; do
+                  sleep 2
+                done
+              done
+
+              echo "Initializing replica set..."
+              mongosh --host mongo-statefulset-0.mongo-headless-service:27017 --eval 'rs.initiate({_id: "rs0", members: [{ _id: 0, host: "mongo-statefulset-0.mongo-headless-service:27017" }, { _id: 1, host: "mongo-statefulset-1.mongo-headless-service:27017" }, { _id: 2, host: "mongo-statefulset-2.mongo-headless-service:27017" }]})'
+
+              echo "Creating root user on all members..."
+              for host in mongo-statefulset-0 mongo-statefulset-1 mongo-statefulset-2; do
+                mongosh --host ${host}.mongo-headless-service:27017 --eval "use admin; if (!db.getUser('${MONGO_USER}')) { db.createUser({ user: '${MONGO_USER}', pwd: '${MONGO_PASSWORD}', roles: [{ role: 'root', db: 'admin' }] }); }"
+              done
+
+              echo "Replica set initialization and root user creation complete."
+      restartPolicy: Never
+  backoffLimit: 3

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: converter-config
+data:
+  VIDEOS_QUEUE_NAME: video
+  MONGO_HOST: mongo-service
+  RABBITMQ_HOST: rabbitmq-service
