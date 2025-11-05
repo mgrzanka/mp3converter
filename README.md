@@ -83,7 +83,7 @@ MP3_QUEUE_NAME=
 MP3_DOWLOAD_ENDPOINT=
 ```
 
-### 2. Running with Docker Compose
+### 2. Start All Services
 
 In the main project directory, run:
 
