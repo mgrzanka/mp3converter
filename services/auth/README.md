@@ -1,18 +1,29 @@
-STORAGE NA MinIO!
+## Running this one service
 
-Inicjalizacja migracji (tylko raz na projekt)
-Tworzy folder migrations:
-flask db init
+You can run this in one of two ways:
 
-Tworzenie nowej migracji
-Tworzy plik migracji na podstawie zmian w modelach:
-flask db migrate -m "opis zmian"
+- In directory services/auth/src
 
-Zastosowanie migracji w bazie danych
-Wykonuje wszystkie migracje w bazie danych:
-flask db upgrade
-
-w folderze services/auth
+```bash
 flask run
-w folderze services
-python3 -m auth.app
+```
+
+- In directory services/auth
+
+```bash
+python3 -m src.app
+```
+
+## Flask-Migrate commands
+
+Create a new migration based on unmigrated changes in models:
+
+```bash
+flask db migrate -m "changes description"
+```
+
+Commit migration to database
+
+```bash
+flask db upgrade
+```
